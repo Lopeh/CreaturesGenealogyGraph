@@ -28,7 +28,7 @@ living_ancestors = set()
 show_eggs = False
 
 # Chnge to show only ancestors of the living
-show_living_only = False
+show_living_only = True
 
 def find_default_genealogy_file():
     """
@@ -212,9 +212,9 @@ def render_graph(creature_dict):
             for parent in creature['parents']:
                 if not dot.node(parent['genome_moniker']):
                     dot.node(parent['genome_moniker'], parent['name'])
-                if parent['sex'] == 'female':
+                if parent['sex'] == 'male':
                     dot.edge(parent['genome_moniker'], genome_moniker, color='blue')
-                elif parent['sex'] == 'male':
+                elif parent['sex'] == 'female':
                     dot.edge(parent['genome_moniker'], genome_moniker, color='deeppink')
                 else:
                     dot.edge(parent['genome_moniker'], genome_moniker, color='grey')
@@ -238,13 +238,14 @@ def main(file_name):
     for genome_moniker in living_descendants:
         dfs_ancestors(genome_moniker, living_ancestors)
     
+    final_creature_dict = creature_dict
     # If we're showing living descendants only, remove unrelated
     if show_living_only:
-        creature_dict = remove_nonliving_ancestors()
+        final_creature_dict = remove_nonliving_ancestors()
 
     # Render and save the genealogy graph
-    print(f'Found {len(creature_dict)} creature records to render.')
-    render_graph(creature_dict)
+    print(f'Found {len(final_creature_dict)} creature records to render.')
+    render_graph(final_creature_dict)
 
 
 if __name__ == '__main__':
