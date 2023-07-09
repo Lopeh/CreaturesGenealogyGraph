@@ -1,0 +1,168 @@
+targ norn
+inst
+sets va04 gtos 0
+file oope 0 "Quick_Genealogy" 0
+sets va05 hist mon1 va04 0
+sets va06 hist mon2 va04 0
+doif hist gend va05 eq 1
+	sets va40 "\nFather: "
+elif hist gend va05 eq 2
+	sets va40 "\nMother: "
+else
+	sets va40 "\nUnknown: "
+endi
+outs "Name: "
+outs hist name va04
+outs " "
+outs va04
+adds va40 hist name va05
+outs va40
+outs " "
+outs va05
+doif hist gend va06 eq 1
+	sets va40 "\nFather: "
+elif hist gend va06 eq 2
+	sets va40 "\nMother: "
+else
+	sets va40 "\nUnknown: "
+endi
+adds va40 hist name va06
+outs va40
+outs " "
+outs va06
+sets va50 "\nStatus: "
+doif ooww va04 eq 0
+	adds va50 "0 - Deleted/Never Existed"
+elif ooww va04 eq 1
+	adds va50 "1 - Inside Agent/Creature"
+elif ooww va04 eq 2
+	adds va50 "2 - Created; Not born"
+elif ooww va04 eq 3
+	adds va50 "3 - Born"
+elif ooww va04 eq 4
+	adds va50 "4 - Exported"
+elif ooww va04 eq 5
+	adds va50 "5 - Dead; Body in world"
+elif ooww va04 eq 6
+	adds va50 "6 - Dead; Body disappeared"
+elif ooww va04 eq 7
+	adds va50 "7 - Unreferenced"
+else
+	adds va50 "8 - Error"
+endi
+outs va50
+sets va10 hist prev va04
+loop
+	doif ooww va10 ge 1 and ooww va10 le 7
+		outs "\n"
+		sets va05 hist mon1 va10 0
+		sets va06 hist mon2 va10 0
+		doif hist gend va05 eq 1
+			sets va40 "\nFather: "
+		elif hist gend va05 eq 2
+			sets va40 "\nMother: "
+		else
+			sets va40 "\nUnknown: "
+		endi
+		outs "\n"
+		outs "Name: "
+		outs hist name va10
+		outs " "
+		outs va10
+		adds va40 hist name va05
+		outs va40
+		outs " "
+		outs va05
+		doif hist gend va06 eq 1
+			sets va40 "\nFather: "
+		elif hist gend va06 eq 2
+			sets va40 "\nMother: "
+		else
+			sets va40 "\nUnknown: "
+		endi
+		adds va40 hist name va06
+		outs va40
+		outs " "
+		outs va06
+		sets va50 "\nStatus: "
+		doif ooww va10 eq 0
+			adds va50 "0 - Deleted/Never Existed"
+		elif ooww va10 eq 1
+			adds va50 "1 - Inside Agent/Creature"
+		elif ooww va10 eq 2
+			adds va50 "2 - Created; Not born"
+		elif ooww va10 eq 3
+			adds va50 "3 - Born"
+		elif ooww va10 eq 4
+			adds va50 "4 - Exported"
+		elif ooww va10 eq 5
+			adds va50 "5 - Dead; Body in world"
+		elif ooww va10 eq 6
+			adds va50 "6 - Dead; Body disappeared"
+		elif ooww va10 eq 7
+			adds va50 "7 - Unreferenced"
+		else
+			adds va50 "8 - Error"
+		endi
+		outs va50
+	endi
+	sets va10 hist prev va10
+untl va10 eq ""
+sets va10 hist next va04
+loop
+	doif ooww va10 ge 1 and ooww va10 le 7
+		outs "\n"
+		sets va05 hist mon1 va10 0
+		sets va06 hist mon2 va10 0
+		doif hist gend va05 eq 1
+			sets va40 "\nFather: "
+		elif hist gend va05 eq 2
+			sets va40 "\nMother: "
+		else
+			sets va40 "\nUnknown: "
+		endi
+		outs "\n"
+		outs "Name: "
+		outs hist name va10
+		outs " "
+		outs va10
+		adds va40 hist name va05
+		outs va40
+		outs " "
+		outs va05
+		doif hist gend va06 eq 1
+			sets va40 "\nFather: "
+		elif hist gend va06 eq 2
+			sets va40 "\nMother: "
+		else
+			sets va40 "\nUnknown: "
+		endi
+		adds va40 hist name va06
+		outs va40
+		outs " "
+		outs va06
+		sets va50 "\nStatus: "
+		doif ooww va10 eq 0
+			adds va50 "0 - Deleted/Never Existed"
+		elif ooww va10 eq 1
+			adds va50 "1 - Inside Agent/Creature"
+		elif ooww va10 eq 2
+			adds va50 "2 - Created; Not born"
+		elif ooww va10 eq 3
+			adds va50 "3 - Born"
+		elif ooww va10 eq 4
+			adds va50 "4 - Exported"
+		elif ooww va10 eq 5
+			adds va50 "5 - Dead; Body in world"
+		elif ooww va10 eq 6
+			adds va50 "6 - Dead; Body disappeared"
+		elif ooww va10 eq 7
+			adds va50 "7 - Unreferenced"
+		else
+			adds va50 "8 - Error"
+		endi
+		outs va50
+	endi
+	sets va10 hist next va10
+untl va10 eq ""
+file oclo
