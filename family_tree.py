@@ -1,13 +1,46 @@
-"""
-Creatures Genealogy Graph
-
-This script is based off Verm's Quick Genealogy CAOS script, and was started with help from ChatGPT and then hacked into working by Mooalot.
-Created & tested with Python 3.11.0
-"""
-
-import sys
 import os
-import graphviz
+import re
+from graphviz import Digraph
+
+# Regular expression patterns
+status_pattern = re.compile(r"Status:\s+(\d+)")
+species_pattern = re.compile(r"Species:\s+(\d+)")
+sex_pattern = re.compile(r"Sex:\s+(-?\d+)")
+variant_pattern = re.compile(r"Variant:\s+(-?\d+)")
+warped_pattern = re.compile(r"Has Warped:\s+(\d+)")
+
+"""
+status_pattern = r"Status:\s*(\d)"
+species_pattern = r"Species:\s*(\d)"
+sex_pattern = r"Sex:\s*([-]?\d)"
+variant_pattern = r"Variant:\s*([-]?\d)"
+warped_pattern = r"Has Warped:\s*(\d)"
+"""
+
+# Dictionary to store creature data
+creature_dict = {}
+
+# Create a set to store the genome_monikers of living descendants and their ancestors
+living_descendants = set()
+living_ancestors = set()
+
+#Change this to show or hide eggs
+show_eggs = False
+
+# Chnge to show only ancestors of the living
+show_living_only = False
+
+def find_default_genealogy_file():
+    """
+    Find the default genealogy file in the script folder.
+    Returns the path of the first .genealogy file found, or None if no file is found.
+    """
+    script_folder = os.path.dirname(os.path.abspath(__file__))
+    genealogy_files = [file for file in os.listdir(script_folder) if file.endswith('.genealogy')]
+    if genealogy_files:
+        return os.path.join(script_folder, genealogy_files[0])
+    else:
+        return None
 
 def split_name_moniker(name_with_moniker):
     parts = name_with_moniker.split()
@@ -18,179 +51,212 @@ def split_name_moniker(name_with_moniker):
         name = parts[-1] if '.gen' in parts[-1] else 'Unknown'
         genome_moniker = parts[0]
     else:
-        name = 'Unknown'
-        genome_moniker = 'unknown'
+        name = None
+        genome_moniker = None
     return name, genome_moniker
 
+def create_parent_object(parent_line):
+    name, moniker = split_name_moniker(parent_line[1])
+    parent = {
+        "genome_moniker": moniker,
+        "name": name,
+        "sex": None
+    }
+    if parent_line[0] == "Mother":
+        parent["sex"] = "female"
+    elif parent_line[0] == "Father":
+        parent["sex"] = "male"
+    elif parent_line[0] == "Unknown":
+        parent["sex"] = "unknown"
 
-def get_generation_level(generation, total_generations):
-    if total_generations <= 10000:
-        return int(generation)
-    return int(generation * (total_generations / 10000))
+    return parent
 
+# Function to parse genealogy file
+def parse_genealogy(file_path):
+    with open(file_path, "r") as file:
+        data = file.read()
+        
+    records = re.split("\n\n", data)
+    
+    for record in records:
+        lines = record.strip().split("\n")
+        if len(lines) >= 8:
+            name_line = lines[0].split(': ')
+            name, genome_moniker = split_name_moniker(name_line[1])
+            status_match = re.match(status_pattern, lines[3])
 
+            if status_match:
+                # Ignore this creature if the status is 7 or higher
+                status = int(status_match.group(1))
+                if status >= 7:
+                    continue
+                if status == 3:
+                    living_descendants.add(genome_moniker)
+
+            parentA_line = lines[1].split(': ')
+            parentB_line = lines[2].split(': ')
+            species_match = re.match(species_pattern, lines[4])
+            sex_match = re.match(sex_pattern, lines[5])
+            variant_match = re.match(variant_pattern, lines[6])
+            warped_match = re.match(warped_pattern, lines[7])
+
+            parentA = create_parent_object(parentA_line)
+            parentB = create_parent_object(parentB_line)
+
+            creature_dict[genome_moniker] = {
+                "name": name,
+                "parents": [],
+                "status": None,
+                "species": None,
+                "sex": None,
+                "variant": None,
+                "warped": None
+            }
+            
+            if parentA["genome_moniker"]:
+                creature_dict[genome_moniker]["parents"].append(parentA)
+            
+            if parentB["genome_moniker"] and parentB["genome_moniker"] != parentA["genome_moniker"]:
+                creature_dict[genome_moniker]["parents"].append(parentB)
+            
+            if species_match:
+                creature_dict[genome_moniker]["species"] = int(species_match.group(1))
+            
+            if sex_match:
+                sex = int(sex_match.group(1))
+                if sex == 1:
+                    creature_dict[genome_moniker]["sex"] = "male"
+                elif sex == 2:
+                    creature_dict[genome_moniker]["sex"] = "female"
+                elif sex == -1:
+                    creature_dict[genome_moniker]["sex"] = "undetermined"
+                elif sex == 0:
+                    creature_dict[genome_moniker]["sex"] = "non-binary"
+            
+            if variant_match:
+                creature_dict[genome_moniker]["variant"] = int(variant_match.group(1))
+            
+            if warped_match:
+                creature_dict[genome_moniker]["warped"] = int(warped_match.group(1))
+
+# Function to find the ancestors of the living
 def dfs_ancestors(genome_moniker, living_ancestors):
     if not genome_moniker in living_ancestors:
         living_ancestors.add(genome_moniker)
     
-    if genome_moniker not in person_dict:
+    if genome_moniker not in creature_dict:
         return
     
-    person = person_dict[genome_moniker]
-    mother_moniker = person['mother_moniker']
-    father_moniker = person['father_moniker']
-    
-    if mother_moniker != 'unknown' and mother_moniker not in living_ancestors:
-        dfs_ancestors(mother_moniker, living_ancestors)
-    if father_moniker != 'unknown' and father_moniker not in living_ancestors:
-        dfs_ancestors(father_moniker, living_ancestors)
+    creature = creature_dict[genome_moniker]
+    for parent in creature["parents"]:
+        if parent["name"] and parent["genome_moniker"] not in living_ancestors:
+            dfs_ancestors(parent["genome_moniker"], living_ancestors)
 
+# Remove ancestors unrelated to the living
+def remove_nonliving_ancestors():
+    living_creature_dict = {}
+    for genome_moniker, creature in creature_dict.items():
+        if genome_moniker in living_descendants or genome_moniker in living_ancestors:
+            living_creature_dict[genome_moniker] = creature_dict[genome_moniker]
+    return living_creature_dict
 
-# If no input file name is provided, use 'family_tree.txt' as the default
-input_file = 'family_tree.txt'
-show_eggs = False
-# Check if an input file name is provided as a command-line argument
-if len(sys.argv) > 1:
-    input_file = sys.argv[1]
-    if len(sys.argv) > 2:
-        show_eggs = sys.argv[2]
-
-# Check if the input file exists
-if not os.path.isfile(input_file):
-    print(f"Input file '{input_file}' does not exist.")
-    sys.exit(1)
-
-# Generate the output file name based on the input file name
-output_file = "AI-Graph-" + os.path.splitext(input_file)[0]
-
-# Open the family tree file
-with open(input_file, 'r') as file:
-    data = file.read()
-
-# Split the data into individual records
-records = data.split('\n\n')
-
-# Create a dictionary to store person information based on genome moniker
-person_dict = {}
-mothers_set = set()
-fathers_set = set()
-
-# Create a set to store the genome_monikers of living descendants and their ancestors
-living_descendants = set()
-living_ancestors = set()
-
-# Iterate over each record and extract the information
-for record in records:
-    lines = record.split('\n')
-    name_line = lines[0].split(': ')
-    mother_line = lines[1].split(': ')
-    father_line = lines[2].split(': ')
-
-    name, genome_moniker = split_name_moniker(name_line[1])    
-    mother_name, mother_moniker = split_name_moniker(mother_line[1]) if len(mother_line) > 1 else ('', 'unknown')
-    father_name, father_moniker = split_name_moniker(father_line[1]) if len(father_line) > 1 else ('', 'unknown')
-    generation = int(genome_moniker.split('-')[0])
-
-    # Add the person to the dictionary
-    # if name != 'Unknown':
-    person_dict[genome_moniker] = {
-        'name': name,
-        'mother_name': mother_name,
-        'mother_moniker': mother_moniker,
-        'father_name': father_name,
-        'father_moniker': father_moniker,
-        'generation': generation
-    }
-    
-    """
-    # Placeholder logic if the CAOS script gets updated with an 'is alive' flag
-    if is_alive:
-        living_descendants.add(genome_moniker)
-    """
-    
-    # Add the mother & father to their respective dicts
-    if mother_moniker not in mothers_set:
-        mothers_set.add(mother_moniker)
-    
-    if father_moniker not in fathers_set:
-        fathers_set.add(father_moniker)
-
-# Determine the total number of generations
-total_generations = max([int(genome_moniker.split('-')[0]) for genome_moniker in person_dict.keys()])
-
-# Calculate the number of generations to consider based on the total number of generations
-if total_generations <= 10:
-    num_generations_to_consider = 2
-else:
-    num_generations_to_consider = max(int(total_generations * 0.0025), 3)
-
-# Traverse the person_dict to identify living descendants within the last few generations
-for genome_moniker, person in person_dict.items():
-    if person['generation'] >= total_generations - num_generations_to_consider + 1:
-        living_descendants.add(genome_moniker)
-
-
-# Perform a depth-first search starting from the living descendants
-for genome_moniker in living_descendants:
-    dfs_ancestors(genome_moniker, living_ancestors)
-
-# Create a Graphviz Digraph object
-dot = graphviz.Digraph(comment='Family Tree')
-
-# Generate the DOT file content with highlighting for living descendants and their ancestors
-for genome_moniker, person in person_dict.items():
-    name = person['name']
-    mother_name = person['mother_name']
-    mother_moniker = person['mother_moniker']
-    father_name = person['father_name']
-    father_moniker = person['father_moniker']
-    generation = person['generation']
-    
-    generation_level = get_generation_level(generation, total_generations)
-
-    node_options = {'color':'lightgrey'}
+# Creature node styling rules
+def creature_node_style(genome_moniker, creature):
+    node_options = {'color':'lightgrey', 'shape':'rect', 'fontcolor':'grey'}
     egg_options = {'color':'lightgreen','shape':'ellipse'}
-    node_options_gen = {'color':'yellow', 'shape':'rect', 'fillcolor':'brightyellow'}
-    edge_options_ma = {'color':'deeppink'}
-    edge_options_pa = {'color':'blue'}
+
+    if creature['status'] == 1:
+        return egg_options
     
+    # Define the shape from living or living ancestry
     if genome_moniker in living_descendants:
+        # Living descendant
         node_options['shape'] = 'doublecircle'
         node_options['style'] = 'filled'
         node_options['fillcolor'] = 'lightblue'
+        node_options['fontcolor'] = 'black'
     elif genome_moniker in living_ancestors:
+        # Living ancestor
+        node_options['shape'] = 'circle'
         node_options['style'] = 'filled'
         node_options['fillcolor'] = 'lightgrey'
-    else:
-        node_options['shape'] = 'sqaure'
-        node_options['fontcolor'] = 'grey'
-    
-    if genome_moniker in mothers_set:
-        node_options['color'] = 'deeppink'
-    
-    if genome_moniker in fathers_set:
+        node_options['fontcolor'] = 'black'
+
+    # Define color from sex
+    if creature['sex'] == 'male':
         node_options['color'] = 'blue'
+    elif creature['sex'] == 'female':
+        node_options['color'] = 'deeppink'
+    elif creature['sex'] == 'non-binary':
+        node_options['color'] = 'pink'
     
-    if name != 'Unknown':
-        if not dot.node(genome_moniker):
-            dot.node(genome_moniker, name, **node_options)
-    elif show_eggs:
-        if not dot.node(genome_moniker):
-            dot.node(genome_moniker, 'E', **egg_options)
+    return node_options
 
-    if name != 'Unknown' or show_eggs is True:
-        if mother_moniker != 'unknown':
-            if not dot.node(mother_moniker):
-                dot.node(mother_moniker, mother_name)
-            dot.edge(mother_moniker, genome_moniker, **edge_options_ma)
 
-        if father_moniker != 'unknown':
-            if not dot.node(father_moniker):
-                dot.node(father_moniker, father_name)
-            dot.edge(father_moniker, genome_moniker, **edge_options_pa)
-        
-        if '.gen' in father_moniker:
-            dot.node(father_moniker, father_name, **node_options_gen)
+# Function to render graph
+def render_graph(creature_dict):
+    """
+    Render the genealogy graph using Graphviz and save it as an SVG file.
+    """
+    dot = Digraph(comment='Genealogy Graph')
+    dot.format = 'svg'
 
-# Render the graph and save it to a file
-dot.render(output_file, format='svg', cleanup=True, view=True)
+    for genome_moniker, creature in creature_dict.items():
+        node_options_gen = {'color':'yellow', 'style':'filled', 'shape':'rect', 'fillcolor':'yellow'}
+
+        if creature['name'] != 'Unknown' or show_eggs is True:
+            if not dot.node(genome_moniker):
+                node_style = creature_node_style(genome_moniker, creature)
+                dot.node(genome_moniker, creature['name'], **node_style)
+
+            for parent in creature['parents']:
+                if not dot.node(parent['genome_moniker']):
+                    dot.node(parent['genome_moniker'], parent['name'])
+                if parent['sex'] == 'female':
+                    dot.edge(parent['genome_moniker'], genome_moniker, color='blue')
+                elif parent['sex'] == 'male':
+                    dot.edge(parent['genome_moniker'], genome_moniker, color='deeppink')
+                else:
+                    dot.edge(parent['genome_moniker'], genome_moniker, color='grey')
+
+                if '.gen' in parent['genome_moniker']:
+                    dot.node(parent['genome_moniker'], parent['name'], **node_options_gen)
+
+    dot.render('genealogy_graph', cleanup=True, view=True)
+
+
+def main(file_name):
+    """
+    Main function to process the genealogy file and generate the genealogy graph.
+    """
+    # Read and process the genealogy file
+    print(f'Reading file {file_name}')
+    parse_genealogy(file_name)
+
+    # Perform a depth-first search starting from the living descendants
+    print(f'Finding ancestors for the living {file_name}')
+    for genome_moniker in living_descendants:
+        dfs_ancestors(genome_moniker, living_ancestors)
+    
+    # If we're showing living descendants only, remove unrelated
+    if show_living_only:
+        creature_dict = remove_nonliving_ancestors()
+
+    # Render and save the genealogy graph
+    print(f'Found {len(creature_dict)} creature records to render.')
+    render_graph(creature_dict)
+
+
+if __name__ == '__main__':
+    import sys
+
+    if len(sys.argv) > 1:
+        file_name = sys.argv[1]
+    else:
+        # Set the default file name to the first .genealogy file in the script folder
+        file_name = find_default_genealogy_file()
+
+    if file_name:
+        main(file_name)
+    else:
+        print("No genealogy file found. Please provide a valid genealogy file.")

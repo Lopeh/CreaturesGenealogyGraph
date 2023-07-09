@@ -1,5 +1,5 @@
 sets va98 wnam
-adds va98 "_Quick_Genealogy.genealogy"
+adds va98 ".genealogy"
 file oope 0 va98 0
 sets va10 hist prev ""
 loop
@@ -65,7 +65,7 @@ loop
 			adds va51 "4 - Geat"
 		else
 			adds va51 vtos hist gnus va10
-			adds va51 " - Unknown"
+			adds va51 "0 - Unknown"
 		endi
 		outs va51
 		sets va52 "\nSex: "
@@ -77,7 +77,7 @@ loop
 			adds va52 "-1 - Undetermined"
 		else
 			adds va52 vtos hist gend va10
-			adds va52 " - Non-binary"
+			adds va52 "0 - Non-binary"
 		endi
 		outs va52
 		sets va53 "\nVariant: "
@@ -90,7 +90,7 @@ loop
 			adds va54 "0 - No"
 		else
 			adds va54 vtos hist wvet va10
-			adds va54 " - ???"
+			adds va54 "-1 - ???"
 		endi
 		outs va54
 		outs "\n\n"
