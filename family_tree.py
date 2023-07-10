@@ -1,3 +1,12 @@
+"""
+Creatures Genealogy Graph
+This script is based off Verm's Quick Genealogy CAOS script, and was started with help from ChatGPT and then hacked into working by Mooalot.
+Created & tested with Python 3.11.0
+"""
+import sys
+if sys.version_info[0] < 3:
+    raise Exception("Python 3 or a more recent version is required.")
+
 import os
 import re
 from graphviz import Digraph
@@ -8,14 +17,6 @@ species_pattern = re.compile(r"Species:\s+(\d+)")
 sex_pattern = re.compile(r"Sex:\s+(-?\d+)")
 variant_pattern = re.compile(r"Variant:\s+(-?\d+)")
 warped_pattern = re.compile(r"Has Warped:\s+(\d+)")
-
-"""
-status_pattern = r"Status:\s*(\d)"
-species_pattern = r"Species:\s*(\d)"
-sex_pattern = r"Sex:\s*([-]?\d)"
-variant_pattern = r"Variant:\s*([-]?\d)"
-warped_pattern = r"Has Warped:\s*(\d)"
-"""
 
 # Dictionary to store creature data
 creature_dict = {}
