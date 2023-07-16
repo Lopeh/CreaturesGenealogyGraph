@@ -26,7 +26,7 @@ living_descendants = set()
 living_ancestors = set()
 
 #Change this to show or hide eggs
-show_eggs = True
+show_eggs = False
 
 # Chnge to show only ancestors of the living
 show_living_only = False
@@ -89,7 +89,7 @@ def parse_genealogy(file_path):
             if status_match:
                 # Ignore this creature if the status is 7 or higher
                 status = int(status_match.group(1))
-                if status >= 7:
+                if status >= 7 and (not name or name == 'Unknown'):
                     continue
                 if status == 3:
                     living_descendants.add(genome_moniker)
@@ -121,6 +121,9 @@ def parse_genealogy(file_path):
                 "variant": None,
                 "warped": None
             }
+            
+            if status_match:
+                creature_dict[genome_moniker]["status"] = int(status_match.group(1))
             
             if parentA["genome_moniker"]:
                 creature_dict[genome_moniker]["parents"].append(parentA)
@@ -171,9 +174,10 @@ def remove_nonliving_ancestors():
 
 # Creature node styling rules
 def creature_node_style(genome_moniker, creature):
-    node_options = {'color':'lightgrey', 'shape':'rect', 'fontcolor':'grey', 'fillcolor':'white'}
-    egg_options = {'color':'lightgreen','shape':'ellipse'}
+    node_options = {'color':'lightgrey', 'shape':'circle', 'fontcolor':'grey', 'fillcolor':'white'}
+    egg_options = {'color':'lightgreen','shape':'egg'}
 
+    # Eggs are unique, so don't need to check anything else.
     if creature['status'] == 1:
         return egg_options
     
@@ -191,16 +195,29 @@ def creature_node_style(genome_moniker, creature):
         node_options['fillcolor'] = 'lightgrey'
         node_options['fontcolor'] = 'black'
 
-    # Modify shape if exported
-    if creature['status'] == 4:
-        node_options['shape'] = 'octagon'
-
-    # Modify color if warped (see: imported)
-    if creature['warped'] ==1:
-        node_options['fillcolor'] = node_options['fillcolor'] + ':blue'
-        node_options['style'] = 'filled'
-        node_options['gradiantangle'] = '90'
+    # Modify left color if warped (see: imported)
+    if creature['warped'] == 1:
+        node_options['fillcolor'] = 'greenyellow:' + node_options['fillcolor']
+        # node_options['style'] = 'radial'
         # print(node_options)
+
+    # Modify right color if exported
+    if creature['status'] == 4:
+        if ":" in node_options['fillcolor']:
+            node_options['fillcolor'] = node_options['fillcolor'].split(':')[0]
+        node_options['fillcolor'] = node_options['fillcolor'] + ':cornflowerblue'
+        # node_options['style'] = 'radial'
+        node_options['fontcolor'] = 'black'
+        # node_options['shape'] = 'house'
+
+    # Modify right color if warped away
+    if creature['status'] == 7:
+        if ":" in node_options['fillcolor']:
+            node_options['fillcolor'] = node_options['fillcolor'].split(':')[0]
+        node_options['fillcolor'] = node_options['fillcolor'] + ':goldenrod'
+        # node_options['style'] = 'radial'
+        node_options['fontcolor'] = 'black'
+        # node_options['shape'] = 'house'
 
     # Define color from sex
     if creature['sex'] == 'male':
@@ -219,10 +236,10 @@ def render_graph(creature_dict, file_name):
     Render the genealogy graph using Graphviz and save it as an SVG file.
     """
     dot = Digraph(comment='Genealogy Graph')
-    dot.format = 'svg'
+    dot.format = 'dot'
 
     for genome_moniker, creature in creature_dict.items():
-        node_options_gen = {'color':'yellow', 'style':'filled', 'shape':'rect', 'fillcolor':'yellow'}
+        node_options_gen = {'style':'filled', 'shape':'invhouse', 'fillcolor':'yellow'}
 
         if creature['name'] != 'Unknown' or show_eggs is True:
             if not dot.node(genome_moniker):
@@ -242,7 +259,7 @@ def render_graph(creature_dict, file_name):
                 if '.gen' in parent['genome_moniker']:
                     dot.node(parent['genome_moniker'], parent['name'], **node_options_gen)
 
-    dot.render(file_name, cleanup=True, view=True)
+    dot.render(file_name, cleanup=True)
 
 
 def main(file_name):
@@ -269,6 +286,11 @@ def main(file_name):
     # Render and save the genealogy graph
     print(f'Found {len(final_creature_dict)} creature records to render.')
     render_graph(final_creature_dict, render_file_name)
+    
+    # Unflatten the graph
+    print(f'Unflattening the graph, especially useful for wolfing runs and long-standing worlds.')
+    os.system(f'unflatten -l 6 -f -c 6 {render_file_name+".dot"} | dot -Tsvg -o {render_file_name+"_wide.svg"}')
+    print(f'All wrapped up, check your {render_file_name+".svg"} file!')
 
 
 if __name__ == '__main__':
