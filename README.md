@@ -9,5 +9,6 @@ A genealogy mapper for Creatures 3 / Docking station!
 3. Start the world you want a genealogy map of.
 4. Select a norn, and open up the script console with CTRL+SHIFT+C
 5. Type in `ject "Quick_Genealogy.cos" 4`
-6. The new genealogy file is now generated in the `My Worlds\{WorldName}\Journal\{WorldName}.genealogy`. Copy this file into where you placed the `family_tree.py`
+6. The new genealogy file is now generated in the `My Worlds\{WorldName}\Journal\{WorldName}.genealogy`. Copy this file into where you placed the `family_tree.py` file.
 7. In your console of choice, run `python family_tree.py {WorldName}.genealogy`, and a new SVG file will be created and run
+   a. In the case you have multiple python installations, you may need to use `py -3.11 family_tree.py {WorldName}.genealogy`
