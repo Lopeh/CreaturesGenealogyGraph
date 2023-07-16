@@ -1,3 +1,12 @@
+"""
+Creatures Genealogy Graph
+This script is based off Verm's Quick Genealogy CAOS script, and was started with help from ChatGPT and then hacked into working by Mooalot.
+Created & tested with Python 3.11.0
+"""
+import sys
+if sys.version_info[0] < 3:
+    raise Exception("Python 3 or a more recent version is required.")
+
 import os
 import re
 from graphviz import Digraph
@@ -8,14 +17,6 @@ species_pattern = re.compile(r"Species:\s+(\d+)")
 sex_pattern = re.compile(r"Sex:\s+(-?\d+)")
 variant_pattern = re.compile(r"Variant:\s+(-?\d+)")
 warped_pattern = re.compile(r"Has Warped:\s+(\d+)")
-
-"""
-status_pattern = r"Status:\s*(\d)"
-species_pattern = r"Species:\s*(\d)"
-sex_pattern = r"Sex:\s*([-]?\d)"
-variant_pattern = r"Variant:\s*([-]?\d)"
-warped_pattern = r"Has Warped:\s*(\d)"
-"""
 
 # Dictionary to store creature data
 creature_dict = {}
@@ -28,7 +29,7 @@ living_ancestors = set()
 show_eggs = False
 
 # Chnge to show only ancestors of the living
-show_living_only = True
+show_living_only = False
 
 def find_default_genealogy_file():
     """
@@ -88,7 +89,7 @@ def parse_genealogy(file_path):
             if status_match:
                 # Ignore this creature if the status is 7 or higher
                 status = int(status_match.group(1))
-                if status >= 7:
+                if status >= 7 and (not name or name == 'Unknown'):
                     continue
                 if status == 3:
                     living_descendants.add(genome_moniker)
@@ -103,6 +104,14 @@ def parse_genealogy(file_path):
             parentA = create_parent_object(parentA_line)
             parentB = create_parent_object(parentB_line)
 
+            # If the sex of one parent is known, but the other isn't, then we can surmise
+            if parentA['genome_moniker'] and parentB['genome_moniker']:
+                if (parentA['sex'] == 'unknown') != (parentB['sex'] == 'unknown'):
+                    if parentA['sex'] == 'unknown':
+                        parentA['sex'] = 'female'
+                    if parentB['sex'] == 'unknown':
+                        parentB['sex'] = 'female'
+
             creature_dict[genome_moniker] = {
                 "name": name,
                 "parents": [],
@@ -112,6 +121,9 @@ def parse_genealogy(file_path):
                 "variant": None,
                 "warped": None
             }
+            
+            if status_match:
+                creature_dict[genome_moniker]["status"] = int(status_match.group(1))
             
             if parentA["genome_moniker"]:
                 creature_dict[genome_moniker]["parents"].append(parentA)
@@ -162,9 +174,10 @@ def remove_nonliving_ancestors():
 
 # Creature node styling rules
 def creature_node_style(genome_moniker, creature):
-    node_options = {'color':'lightgrey', 'shape':'rect', 'fontcolor':'grey'}
-    egg_options = {'color':'lightgreen','shape':'ellipse'}
+    node_options = {'color':'lightgrey', 'shape':'circle', 'fontcolor':'grey', 'fillcolor':'white'}
+    egg_options = {'color':'lightgreen','shape':'egg'}
 
+    # Eggs are unique, so don't need to check anything else.
     if creature['status'] == 1:
         return egg_options
     
@@ -182,6 +195,30 @@ def creature_node_style(genome_moniker, creature):
         node_options['fillcolor'] = 'lightgrey'
         node_options['fontcolor'] = 'black'
 
+    # Modify left color if warped (see: imported)
+    if creature['warped'] == 1:
+        node_options['fillcolor'] = 'greenyellow:' + node_options['fillcolor']
+        # node_options['style'] = 'radial'
+        # print(node_options)
+
+    # Modify right color if exported
+    if creature['status'] == 4:
+        if ":" in node_options['fillcolor']:
+            node_options['fillcolor'] = node_options['fillcolor'].split(':')[0]
+        node_options['fillcolor'] = node_options['fillcolor'] + ':cornflowerblue'
+        # node_options['style'] = 'radial'
+        node_options['fontcolor'] = 'black'
+        # node_options['shape'] = 'house'
+
+    # Modify right color if warped away
+    if creature['status'] == 7:
+        if ":" in node_options['fillcolor']:
+            node_options['fillcolor'] = node_options['fillcolor'].split(':')[0]
+        node_options['fillcolor'] = node_options['fillcolor'] + ':goldenrod'
+        # node_options['style'] = 'radial'
+        node_options['fontcolor'] = 'black'
+        # node_options['shape'] = 'house'
+
     # Define color from sex
     if creature['sex'] == 'male':
         node_options['color'] = 'blue'
@@ -194,15 +231,15 @@ def creature_node_style(genome_moniker, creature):
 
 
 # Function to render graph
-def render_graph(creature_dict):
+def render_graph(creature_dict, file_name):
     """
     Render the genealogy graph using Graphviz and save it as an SVG file.
     """
     dot = Digraph(comment='Genealogy Graph')
-    dot.format = 'svg'
+    dot.format = 'dot'
 
     for genome_moniker, creature in creature_dict.items():
-        node_options_gen = {'color':'yellow', 'style':'filled', 'shape':'rect', 'fillcolor':'yellow'}
+        node_options_gen = {'style':'filled', 'shape':'invhouse', 'fillcolor':'yellow'}
 
         if creature['name'] != 'Unknown' or show_eggs is True:
             if not dot.node(genome_moniker):
@@ -211,7 +248,7 @@ def render_graph(creature_dict):
 
             for parent in creature['parents']:
                 if not dot.node(parent['genome_moniker']):
-                    dot.node(parent['genome_moniker'], parent['name'])
+                    dot.node(parent['genome_moniker'], parent['name'], color='green', shape='polygon', distortion='0.1')
                 if parent['sex'] == 'male':
                     dot.edge(parent['genome_moniker'], genome_moniker, color='blue')
                 elif parent['sex'] == 'female':
@@ -222,30 +259,38 @@ def render_graph(creature_dict):
                 if '.gen' in parent['genome_moniker']:
                     dot.node(parent['genome_moniker'], parent['name'], **node_options_gen)
 
-    dot.render('genealogy_graph', cleanup=True, view=True)
+    dot.render(file_name, cleanup=True)
 
 
 def main(file_name):
-    """
-    Main function to process the genealogy file and generate the genealogy graph.
-    """
     # Read and process the genealogy file
     print(f'Reading file {file_name}')
     parse_genealogy(file_name)
+
+    render_file_name = file_name.replace('.genealogy','')
 
     # Perform a depth-first search starting from the living descendants
     print(f'Finding ancestors for the living {file_name}')
     for genome_moniker in living_descendants:
         dfs_ancestors(genome_moniker, living_ancestors)
     
-    final_creature_dict = creature_dict
     # If we're showing living descendants only, remove unrelated
+    final_creature_dict = creature_dict
     if show_living_only:
         final_creature_dict = remove_nonliving_ancestors()
+        render_file_name += '_living-only'
+    
+    if show_eggs:
+        render_file_name += '_eggs'
 
     # Render and save the genealogy graph
     print(f'Found {len(final_creature_dict)} creature records to render.')
-    render_graph(final_creature_dict)
+    render_graph(final_creature_dict, render_file_name)
+    
+    # Unflatten the graph
+    print(f'Unflattening the graph, especially useful for wolfing runs and long-standing worlds.')
+    os.system(f'unflatten -l 6 -f -c 6 {render_file_name+".dot"} | dot -Tsvg -o {render_file_name+"_wide.svg"}')
+    print(f'All wrapped up, check your {render_file_name+".svg"} file!')
 
 
 if __name__ == '__main__':
