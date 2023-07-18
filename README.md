@@ -16,6 +16,7 @@ Things get much more interesting for longer-running worlds, especially those tha
 * White, regular-circles (with gray font): Creatures who have passed, but never had *any* offspring
 * Polygons: creatures who are referenced only by their 
 If a creature's name is colored green on the left, that means it warped in from another world
+
 _Poaditucna here stumbled upon this world, and despite her passing, her lineage is still going!_
 ![image](https://github.com/Lopeh/CreaturesGenealogyGraph/assets/13429544/60cbd6f8-d6ee-4f2a-a788-6760d5414312)
 
@@ -24,6 +25,7 @@ _Kialryrfoy here is thriving in this new world, even finding love and having a k
 
 
 If a creature's name is colored peach on the right, that means it was exported or warped out from the world.
+
 _Xoasbacyzu, on the other hand, took a look around, found all this quite silly and strange, and left for new horizons back through the warp_
 ![image](https://github.com/Lopeh/CreaturesGenealogyGraph/assets/13429544/5afee3df-3cb1-4bf4-94ad-375f85e342c1)
 
