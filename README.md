@@ -14,7 +14,7 @@ Things get much more interesting for longer-running worlds, especially those tha
 * Gray, regular-circle shapes with names are the ancestors of those living creatures
 * White, regular-circles: Creatures who have passed, but do not have any living descendants
 * White, regular-circles (with gray font): Creatures who have passed, but never had *any* offspring
-* Polygons: creatures who are referenced only by their 
+* Polygons: creatures who are referenced only by their offspring. Typically the genetic ancestor or custom genetic files (eg: dave.gen)
 * If a creature's name is colored green on the left, that means it warped in from another world
 
 ![image](https://github.com/Lopeh/CreaturesGenealogyGraph/assets/13429544/60cbd6f8-d6ee-4f2a-a788-6760d5414312)
