@@ -20,6 +20,10 @@ warped_pattern = re.compile(r"Has Warped:\s+(\d+)")
 
 # Dictionary to store creature data
 creature_dict = {}
+grendel_dict = {}
+ettin_dict = {}
+unknownparents = []
+added_nodes = []
 
 # Create a set to store the genome_monikers of living descendants and their ancestors
 living_descendants = set()
@@ -39,6 +43,7 @@ def find_default_genealogy_file():
     script_folder = os.path.dirname(os.path.abspath(__file__))
     genealogy_files = [file for file in os.listdir(script_folder) if file.endswith('.genealogy')]
     if genealogy_files:
+        # return "Verms_WT.genealogy"
         return os.path.join(script_folder, genealogy_files[0])
     else:
         return None
@@ -89,7 +94,7 @@ def parse_genealogy(file_path):
             if status_match:
                 # Ignore this creature if the status is 7 or higher
                 status = int(status_match.group(1))
-                if status >= 7 and (not name or name == 'Unknown'):
+                if status >= 7:
                     continue
                 if status == 3:
                     living_descendants.add(genome_moniker)
@@ -198,15 +203,15 @@ def creature_node_style(genome_moniker, creature):
     # Modify left color if warped (see: imported)
     if creature['warped'] == 1:
         node_options['fillcolor'] = 'greenyellow:' + node_options['fillcolor']
-        # node_options['style'] = 'radial'
+        node_options['style'] = 'filled'
         # print(node_options)
 
     # Modify right color if exported
     if creature['status'] == 4:
         if ":" in node_options['fillcolor']:
             node_options['fillcolor'] = node_options['fillcolor'].split(':')[0]
-        node_options['fillcolor'] = node_options['fillcolor'] + ':cornflowerblue'
-        # node_options['style'] = 'radial'
+        node_options['fillcolor'] = node_options['fillcolor'] + ':peachpuff'
+        node_options['style'] = 'filled'
         node_options['fontcolor'] = 'black'
         # node_options['shape'] = 'house'
 
@@ -229,36 +234,68 @@ def creature_node_style(genome_moniker, creature):
     
     return node_options
 
+def add_creature_dot(creature, genome_moniker, dot):
+    node_options_gen = {'style':'filled', 'shape':'invhouse', 'fillcolor':'yellow'}
+    if creature['name'] != 'Unknown' or show_eggs is True:
+        if genome_moniker not in added_nodes:
+            node_style = creature_node_style(genome_moniker, creature)
+            dot.node(genome_moniker, creature['name'], **node_style)
+            added_nodes.append(genome_moniker)
+            
+        for parent in creature['parents']:
+            if parent['genome_moniker'] not in added_nodes:
+                if parent['genome_moniker'] not in creature_dict:
+                    dot.node(parent['genome_moniker'], parent['name'], color='green', shape='polygon', distortion='0.1')
+                else:
+                    node_style = creature_node_style(parent['genome_moniker'], creature)
+                    dot.node(parent['genome_moniker'], creature['name'], **node_style)
+                added_nodes.append(genome_moniker)
+            if parent['sex'] == 'male':
+                dot.edge(parent['genome_moniker'], genome_moniker, color='blue')
+            elif parent['sex'] == 'female':
+                dot.edge(parent['genome_moniker'], genome_moniker, color='deeppink')
+            else:
+                dot.edge(parent['genome_moniker'], genome_moniker, color='grey')
 
+            if '.gen' in parent['genome_moniker']:
+                dot.node(parent['genome_moniker'], parent['name'], **node_options_gen)
+    
 # Function to render graph
 def render_graph(creature_dict, file_name):
     """
     Render the genealogy graph using Graphviz and save it as an SVG file.
     """
     dot = Digraph(comment='Genealogy Graph')
-    dot.format = 'dot'
-
+    dot.format = 'svg'
+    
+    # Iterate through the base list of creatures first
     for genome_moniker, creature in creature_dict.items():
-        node_options_gen = {'style':'filled', 'shape':'invhouse', 'fillcolor':'yellow'}
-
-        if creature['name'] != 'Unknown' or show_eggs is True:
-            if not dot.node(genome_moniker):
-                node_style = creature_node_style(genome_moniker, creature)
-                dot.node(genome_moniker, creature['name'], **node_style)
-
-            for parent in creature['parents']:
-                if not dot.node(parent['genome_moniker']):
-                    dot.node(parent['genome_moniker'], parent['name'], color='green', shape='polygon', distortion='0.1')
-                if parent['sex'] == 'male':
-                    dot.edge(parent['genome_moniker'], genome_moniker, color='blue')
-                elif parent['sex'] == 'female':
-                    dot.edge(parent['genome_moniker'], genome_moniker, color='deeppink')
-                else:
-                    dot.edge(parent['genome_moniker'], genome_moniker, color='grey')
-
-                if '.gen' in parent['genome_moniker']:
-                    dot.node(parent['genome_moniker'], parent['name'], **node_options_gen)
-
+        species = creature['species']
+        match species:
+            case 1:
+                with dot.subgraph(name="cluster_1", comment="Norns") as norns:
+                    # norns.attr(rank='same')
+                    add_creature_dot(creature, genome_moniker, norns)
+            case 2:
+                with dot.subgraph(name="cluster_2", comment="Grendels") as grendels:
+                    # grendels.attr(rank='same')
+                    add_creature_dot(creature, genome_moniker, grendels)
+            case 3:
+                with dot.subgraph(name="cluster_3", comment="Ettins") as ettins:
+                    # ettins.attr(rank='same')
+                    add_creature_dot(creature, genome_moniker, ettins)
+            case 4:
+                with dot.subgraph(name="cluster_4", comment="Geats") as geats:
+                    # geats.attr(rank='same')
+                    add_creature_dot(creature, genome_moniker, geats)
+            case _:
+                with dot.subgraph(name="cluster_5", comment="Mutants/Unknowns") as mutants:
+                    # mutants.attr(rank='same')
+                    add_creature_dot(creature, genome_moniker, mutants)
+        
+        
+        
+                    
     dot.render(file_name, cleanup=True)
 
 
@@ -288,9 +325,9 @@ def main(file_name):
     render_graph(final_creature_dict, render_file_name)
     
     # Unflatten the graph
-    print(f'Unflattening the graph, especially useful for wolfing runs and long-standing worlds.')
-    os.system(f'unflatten -l 6 -f -c 6 {render_file_name+".dot"} | dot -Tsvg -o {render_file_name+"_wide.svg"}')
-    print(f'All wrapped up, check your {render_file_name+".svg"} file!')
+    # print(f'Unflattening the graph, especially useful for wolfing runs and long-standing worlds.')
+    # os.system(f'unflatten -l 6 -f -c 6 {render_file_name+".dot"} | dot -Tsvg -o {render_file_name+"_wide.svg"}')
+    # print(f'All wrapped up, check your {render_file_name+".svg"} file!')
 
 
 if __name__ == '__main__':
